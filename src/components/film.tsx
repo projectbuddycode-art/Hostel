@@ -36,6 +36,7 @@ export function Film({
     const video = videoRef.current;
     const frame = frameRef.current;
     if (!video || !frame) return;
+    if (eager) video.setAttribute("fetchpriority", "high");
     const kick = () => {
       if (reduced) {
         video.pause();
@@ -79,7 +80,7 @@ export function Film({
       query.removeEventListener("change", onBreakpoint);
       trigger?.kill();
     };
-  }, [item, reduced, scrub, start]);
+  }, [eager, item, reduced, scrub, start]);
 
   return (
     <div
@@ -97,7 +98,6 @@ export function Film({
         loop
         playsInline
         preload="auto"
-        fetchPriority={eager ? "high" : "auto"}
         aria-hidden={label ? undefined : true}
         aria-label={label}
       >
