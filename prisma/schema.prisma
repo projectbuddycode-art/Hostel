@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String
+  role           String          @default("CUSTOMER")
+  name           String
+  phone          String          @default("")
+  status         String          @default("ACTIVE")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  profile        Profile?
+  addresses      Address[]
+  subscriptions  Subscription[]
+  selections     MealSelection[]
+  orders         Order[]
+  payments       Payment[]
+  notifications  Notification[]
+  tickets        SupportTicket[]
+  auditLogs      AuditLog[]      @relation("AuditActor")
+  resetTokens    PasswordReset[]
+
+  @@index([role, status])
+}
+
+model Profile {
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dietaryPreferences String  @default("[]")
+  allergies          String  @default("")
+  spicePreference    String  @default("medium")
+  whatsappOptIn      Boolean @default(false)
+}
+
+model Address {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String         @default("Home")
+  line1         String
+  line2         String         @default("")
+  city          String
+  state         String         @default("")
+  postalCode    String
+  zone          String         @default("Central")
+  isDefault     Boolean        @default(false)
+  subscriptions Subscription[]
+
+  @@index([userId])
+}
+
+model Plan {
+  id                   String         @id @default(cuid())
+  slug                 String         @unique
+  name                 String
+  tagline              String
+  description          String
+  pricePaise           Int
+  priceNote            String         @default("")
+  mealsPerDay          Int
+  mealTypes            String
+  durationDays         Int            @default(30)
+  mealCredits          Int
+  maxAddons            Int            @default(1)
+  allowSides           Boolean        @default(false)
+  allowBread           Boolean        @default(false)
+  allowInstructions    Boolean        @default(false)
+  maxInstructionLength Int            @default(80)
+  deliveryConditions   String         @default("")
+  pauseMinDays         Int            @default(3)
+  pauseMaxDays         Int            @default(14)
+  cancellationRules    String         @default("")
+  upgradeNotes         String         @default("")
+  purchasable          Boolean        @default(true)
+  active               Boolean        @default(true)
+  sortOrder            Int            @default(0)
+  subscriptions        Subscription[]
+  addons               PlanAddon[]
+}
+
+model Addon {
+  id          String               @id @default(cuid())
+  name        String
+  description String               @default("")
+  pricePaise  Int
+  mealTypes   String               @default("[\"breakfast\",\"lunch\",\"dinner\"]")
+  active      Boolean              @default(true)
+  plans       PlanAddon[]
+  selections  MealSelectionAddon[]
+}
+
+model PlanAddon {
+  planId  String
+  addonId String
+  plan    Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  addon   Addon  @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@id([planId, addonId])
+}
+
+model Subscription {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId           String
+  plan             Plan            @relation(fields: [planId], references: [id])
+  addressId        String?
+  address          Address?        @relation(fields: [addressId], references: [id])
+  status           String          @default("PENDING_PAYMENT")
+  startDate        String?
+  endDate          String?
+  pausedFrom       String?
+  pausedUntil      String?
+  pricePaise       Int
+  creditSnapshot   Int             @default(0)
+  durationSnapshot Int             @default(30)
+  mealsRemaining   Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  selections       MealSelection[]
+  payments         Payment[]
+
+  @@index([userId, status])
+  @@index([status, endDate])
+}
+
+model Dish {
+  id             String          @id @default(cuid())
+  name           String
+  description    String
+  mealType       String
+  imageUrl       String          @default("")
+  allergens      String          @default("[]")
+  dietaryTags    String          @default("[]")
+  portionOptions String          @default("[\"regular\",\"hearty\"]")
+  spiceOptions   String          @default("[\"mild\",\"medium\",\"hot\"]")
+  sides          String          @default("[]")
+  breads         String          @default("[]")
+  extraPaise     Int             @default(0)
+  active         Boolean         @default(true)
+  schedules      MenuSchedule[]
+  selections     MealSelection[]
+
+  @@unique([name, mealType])
+}
+
+model MenuSchedule {
+  id          String  @id @default(cuid())
+  date        String
+  mealType    String
+  dishId      String
+  dish        Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  available   Boolean @default(true)
+  cutoffHours Int     @default(12)
+  serviceTime String  @default("13:00")
+
+  @@unique([date, mealType, dishId])
+  @@index([date, mealType])
+}
+
+model MealSelection {
+  id           String               @id @default(cuid())
+  subscriptionId String
+  subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String
+  mealType     String
+  dishId       String
+  dish         Dish                 @relation(fields: [dishId], references: [id])
+  side         String               @default("")
+  breadOrRice  String               @default("")
+  portion      String               @default("regular")
+  spice        String               @default("medium")
+  instructions String               @default("")
+  status       String               @default("CONFIRMED")
+  extraPaise   Int                  @default(0)
+  cutoffAt     DateTime
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  addons       MealSelectionAddon[]
+  order        Order?
+
+  @@unique([subscriptionId, date, mealType])
+  @@index([date, mealType, status])
+  @@index([userId, date])
+}
+
+model MealSelectionAddon {
+  id          String        @id @default(cuid())
+  selectionId String
+  selection   MealSelection @relation(fields: [selectionId], references: [id], onDelete: Cascade)
+  addonId     String
+  addon       Addon         @relation(fields: [addonId], references: [id])
+  pricePaise  Int
+
+  @@unique([selectionId, addonId])
+}
+
+model Order {
+  id               String              @id @default(cuid())
+  userId           String
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectionId      String              @unique
+  selection        MealSelection       @relation(fields: [selectionId], references: [id], onDelete: Cascade)
+  status           String              @default("CONFIRMED")
+  requestStatus    String              @default("NONE")
+  dishName         String              @default("")
+  addressSnapshot  String              @default("")
+  zone             String              @default("")
+  allergenSnapshot String              @default("[]")
+  allergyWarning   String              @default("")
+  instructions     String              @default("")
+  totalPaise       Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  events           DeliveryEvent[]
+  assignment       DeliveryAssignment?
+
+  @@index([status, createdAt])
+  @@index([zone])
+}
+
+model DeliveryAssignment {
+  id             String @id @default(cuid())
+  orderId        String @unique
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  personnelName  String
+  personnelPhone String @default("")
+  status         String @default("ASSIGNED")
+  notes          String @default("")
+}
+
+model DeliveryEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId    String?
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  provider          String
+  status            String
+  amountPaise       Int
+  currency          String   @default("INR")
+  razorpayOrderId   String   @default("")
+  razorpayPaymentId String   @default("")
+  idempotencyKey    String   @unique
+  failureReason     String   @default("")
+  note              String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  refunds           Refund[]
+
+  @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
+  @@index([userId, status])
+}
+
+model Refund {
+  id          String   @id @default(cuid())
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountPaise Int
+  reason      String
+  status      String   @default("RECORDED")
+  providerRef String   @default("")
+  adminId     String
+  createdAt   DateTime @default(now())
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  channel   String    @default("IN_APP")
+  title     String
+  body      String
+  status    String    @default("RECORDED")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  phone     String   @default("")
+  topic     String   @default("general")
+  subject   String
+  message   String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String   @default("")
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model KitchenBatch {
+  id           String @id @default(cuid())
+  date         String
+  mealType     String
+  dishName     String
+  quantity     Int
+  allergyNotes String @default("")
+  status       String @default("PLANNED")
+
+  @@unique([date, mealType, dishName])
+}
