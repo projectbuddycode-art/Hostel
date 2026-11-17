@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useReducedMotion } from "framer-motion";
@@ -13,7 +13,6 @@ export function Film({
   className = "",
   position = "center center",
   start = 0,
-  eager = false,
   scrub,
   label,
   fill = false,
@@ -30,27 +29,12 @@ export function Film({
   const frameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const reduced = useReducedMotion();
-  const [active, setActive] = useState(eager);
   const item = films[name];
-
-  useEffect(() => {
-    if (eager) return;
-    const node = frameRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) setActive(true);
-      },
-      { rootMargin: "360px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [eager]);
 
   useEffect(() => {
     const video = videoRef.current;
     const frame = frameRef.current;
-    if (!video || !frame || !active) return;
+    if (!video || !frame) return;
     const place = () => {
       const duration = Number.isFinite(video.duration) ? video.duration : 10;
       const time = Math.min(start, Math.max(0, duration - 0.2));
@@ -65,7 +49,7 @@ export function Film({
 
     const onReady = () => {
       place();
-      if (reduced || scrub) {
+      if (reduced) {
         video.pause();
         return;
       }
@@ -100,26 +84,17 @@ export function Film({
           const from = Math.min(scrub.from, duration - 0.3);
           const to = Math.min(scrub.to, duration - 0.05);
           video.currentTime = from + (to - from) * self.progress;
+          if (video.paused) video.play().catch(() => undefined);
         },
       });
     }
 
-    const playback = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry || scrub || reduced || video.paused === false) return;
-        if (entry.isIntersecting) video.play().catch(() => undefined);
-      },
-      { threshold: 0.05 },
-    );
-    playback.observe(frame);
-
     return () => {
       video.removeEventListener("loadedmetadata", onReady);
       query.removeEventListener("change", onBreakpoint);
-      playback.disconnect();
       trigger?.kill();
     };
-  }, [active, item, reduced, scrub, start]);
+  }, [item, reduced, scrub, start]);
 
   return (
     <div
@@ -133,10 +108,10 @@ export function Film({
         style={{ objectPosition: position }}
         poster={item.poster}
         muted
-        autoPlay={!scrub && !reduced}
-        loop={!scrub}
+        autoPlay={!reduced}
+        loop
         playsInline
-        preload={eager || active ? "auto" : "none"}
+        preload="auto"
         aria-hidden={label ? undefined : true}
         aria-label={label}
       />
