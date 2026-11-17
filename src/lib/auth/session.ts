@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "th_session";
+export const PREVIEW_COOKIE = "th_admin_preview";
 
 export type Role = "CUSTOMER" | "ADMIN" | "KITCHEN" | "DELIVERY";
 

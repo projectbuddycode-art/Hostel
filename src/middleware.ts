@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canAccessPath } from "@/lib/auth/access";
-import { readSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
+import { PREVIEW_COOKIE, readSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await readSessionToken(token) : null;
+  const preview = request.cookies.get(PREVIEW_COOKIE)?.value === "1";
   const isAccount = pathname.startsWith("/account") || pathname.startsWith("/checkout");
   const isAdmin = pathname.startsWith("/admin");
   const isAdminLogin = pathname === "/admin/login";
@@ -22,6 +23,10 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/admin";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  if (isAdmin && !isAdminLogin && preview) {
+    return NextResponse.next();
   }
 
   if (isAdmin && !isAdminLogin) {

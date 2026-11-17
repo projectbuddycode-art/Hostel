@@ -2,14 +2,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/chrome";
 import { staffNav } from "@/lib/auth/access";
-import { clearSessionCookie, getSession } from "@/lib/auth/guard";
+import { clearSessionCookie, getSession, hasAdminPreview } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db";
 import { logoutAction } from "@/server/actions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
-  if (!session || session.role === "CUSTOMER") redirect("/admin/login");
-  const user = await prisma.user.findUnique({ where: { id: session.id } });
+  const preview = await hasAdminPreview();
+  const session = preview ? null : await getSession();
+  if (!preview && (!session || session.role === "CUSTOMER")) redirect("/admin/login");
+  const user = preview
+    ? { name: "Dining desk", role: "ADMIN", status: "ACTIVE" }
+    : await prisma.user.findUnique({ where: { id: session!.id } });
   if (!user || user.status !== "ACTIVE" || !["ADMIN", "KITCHEN", "DELIVERY"].includes(user.role)) {
     await clearSessionCookie();
     redirect("/admin/login");
@@ -35,7 +38,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link key={link.href} href={link.href} className="whitespace-nowrap text-sm">{link.label}</Link>
           ))}
         </nav>
-        <div id="content">{children}</div>
+        <div id="content">
+          {preview ? <p className="mb-6 text-sm text-ink/60">Viewing the desk without a staff sign-in. Records are visible. Changes still require a staff account.</p> : null}
+          {children}
+        </div>
       </div>
     </div>
   );

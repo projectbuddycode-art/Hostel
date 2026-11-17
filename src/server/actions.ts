@@ -8,7 +8,7 @@ import path from "path";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { clearSessionCookie, requirePermission, requireUser, setSessionCookie } from "@/lib/auth/guard";
+import { clearAdminPreview, clearSessionCookie, requirePermission, requireUser, setAdminPreview, setSessionCookie } from "@/lib/auth/guard";
 import { safeNext } from "@/lib/auth/session";
 import { roleHas } from "@/lib/auth/access";
 import { site } from "@/lib/config";
@@ -151,8 +151,14 @@ export async function adminLoginAction(formData: FormData) {
   redirect("/admin");
 }
 
+export async function skipAdminLoginAction() {
+  await setAdminPreview();
+  redirect("/admin");
+}
+
 export async function logoutAction(formData: FormData) {
   await clearSessionCookie();
+  await clearAdminPreview();
   redirect(formText(formData, "next") === "admin" ? "/admin/login" : "/");
 }
 

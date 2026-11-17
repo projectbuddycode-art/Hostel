@@ -13,6 +13,7 @@ export function Film({
   className = "",
   position = "center center",
   start = 0,
+  eager = false,
   scrub,
   label,
   fill = false,
@@ -35,40 +36,24 @@ export function Film({
     const video = videoRef.current;
     const frame = frameRef.current;
     if (!video || !frame) return;
-    const place = () => {
-      const duration = Number.isFinite(video.duration) ? video.duration : 10;
-      const time = Math.min(start, Math.max(0, duration - 0.2));
-      if (time > 0 && video.currentTime < 0.05) {
-        try {
-          video.currentTime = time;
-        } catch {
-          /* The browser may reject a seek before the first frame. */
-        }
-      }
-    };
-
-    const onReady = () => {
-      place();
+    const kick = () => {
       if (reduced) {
         video.pause();
         return;
       }
-      video.play().catch(() => undefined);
+      if (video.paused) video.play().catch(() => undefined);
     };
 
-    video.addEventListener("loadedmetadata", onReady);
-    const choose = () => {
-      const narrow = window.matchMedia("(max-width: 767px)").matches;
-      const canWebm = video.canPlayType("video/webm");
-      return narrow ? item.mobile : canWebm ? item.webm : item.desktop;
-    };
-    const nextSrc = choose();
-    if (!video.src.endsWith(nextSrc)) video.src = nextSrc;
-    if (video.readyState >= 1) onReady();
+    kick();
+    video.addEventListener("loadeddata", kick);
     const query = window.matchMedia("(max-width: 767px)");
     const onBreakpoint = () => {
-      const chosen = choose();
-      if (!video.src.endsWith(chosen)) video.src = chosen;
+      const chosen = query.matches ? item.mobile : item.desktop;
+      const stamp = start > 0 ? `#t=${start}` : "";
+      if (!video.currentSrc.includes(chosen)) {
+        video.src = `${chosen}${stamp}`;
+        kick();
+      }
     };
     query.addEventListener("change", onBreakpoint);
     let trigger: ScrollTrigger | undefined;
@@ -90,7 +75,7 @@ export function Film({
     }
 
     return () => {
-      video.removeEventListener("loadedmetadata", onReady);
+      video.removeEventListener("loadeddata", kick);
       query.removeEventListener("change", onBreakpoint);
       trigger?.kill();
     };
@@ -112,9 +97,13 @@ export function Film({
         loop
         playsInline
         preload="auto"
+        fetchPriority={eager ? "high" : "auto"}
         aria-hidden={label ? undefined : true}
         aria-label={label}
-      />
+      >
+        <source src={`${item.mobile}${start > 0 ? `#t=${start}` : ""}`} media="(max-width: 767px)" type="video/mp4" />
+        <source src={`${item.desktop}${start > 0 ? `#t=${start}` : ""}`} type="video/mp4" />
+      </video>
     </div>
   );
 }

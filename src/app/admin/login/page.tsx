@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Notice } from "@/components/editorial";
-import { adminLoginAction } from "@/server/actions";
+import { adminLoginAction, skipAdminLoginAction } from "@/server/actions";
 
 export const metadata: Metadata = { title: "Staff sign in", robots: { index: false, follow: false } };
 
@@ -17,6 +17,9 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
           <label className="block text-sm">Email<input className="field mt-2 text-navy" type="email" name="email" required autoComplete="username" /></label>
           <label className="block text-sm">Password<input className="field mt-2 text-navy" type="password" name="password" required autoComplete="current-password" /></label>
           <button className="btn btn-gold" type="submit">Enter</button>
+        </form>
+        <form action={skipAdminLoginAction} className="mt-6">
+          <button className="btn btn-line" type="submit">Skip login and view the dashboard</button>
         </form>
       </section>
     </main>

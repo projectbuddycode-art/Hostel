@@ -103,7 +103,6 @@ function HeroFilm() {
       <div data-hero-video className="absolute inset-0">
         <Film name="hero" eager className="h-full w-full" position="center 42%" label="Chefs preparing a grand dining table" />
       </div>
-      {!reduced ? <div className="hero-veil pointer-events-none absolute inset-0 bg-charcoal" /> : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-navy/75 via-navy/30 to-transparent" />
       <div className="relative z-10 flex min-h-[100svh] flex-col justify-end px-5 pb-14 pt-28 md:px-14 md:pb-16">
         <div className="mb-6 flex items-center gap-4">
