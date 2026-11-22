@@ -46,18 +46,18 @@ export function HomeCinema({ plans }: { plans: React.ReactNode }) {
       <HorizontalServices />
       <GrandTable />
       <HowItWorks />
-      <section className="bg-ivory px-5 py-16 md:px-14 md:py-20">
+      <section className="bg-ivory px-5 py-12 md:px-14 md:py-16">
         <div className="mx-auto max-w-page">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <p className="text-[0.68rem] uppercase tracking-[0.32em] text-golddeep">Memberships</p>
-              <h2 className="mt-4 font-serif text-5xl font-light text-navy md:text-6xl">Choose the shape of the day.</h2>
+              <h2 className="mt-3 font-serif text-5xl font-light text-navy md:text-6xl">Choose the shape of the day.</h2>
             </div>
             <p className="max-w-sm text-sm leading-7 text-ink/70">
               Prices and credits are the tariffs currently configured by the dining desk. They are not unlimited, and they can be revised for future terms.
             </p>
           </div>
-          <div className="mt-12">{plans}</div>
+          <div className="mt-8">{plans}</div>
         </div>
       </section>
       <QualityFilms />
@@ -150,8 +150,8 @@ function Philosophy() {
   }, []);
 
   return (
-    <section ref={ref} className="relative bg-ivory px-5 py-16 md:px-14 md:py-20">
-      <div className="mx-auto grid max-w-page items-center gap-10 md:grid-cols-[0.9fr_1.1fr]">
+    <section ref={ref} className="relative bg-ivory px-5 py-12 md:px-14 md:py-16">
+      <div className="mx-auto grid max-w-page items-center gap-8 md:grid-cols-[0.9fr_1.1fr]">
         <div>
           <p data-philosophy className="font-serif text-7xl text-gold/80">01</p>
           <p data-philosophy className="text-[0.68rem] uppercase tracking-[0.32em] text-golddeep">The house</p>
@@ -186,23 +186,28 @@ function HorizontalServices() {
     const media = gsap.matchMedia();
     media.add("(min-width: 900px)", () => {
       const tween = gsap.to(track, {
-        x: () => -(track.scrollWidth - window.innerWidth),
+        x: () => -(Math.max(0, track.scrollWidth - window.innerWidth)),
         ease: "none",
         scrollTrigger: {
           trigger: section,
           pin: true,
-          scrub: 0.7,
+          scrub: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
-          end: () => `+=${track.scrollWidth - window.innerWidth}`,
+          end: () => `+=${Math.max(window.innerWidth * 0.85, track.scrollWidth - window.innerWidth)}`,
         },
       });
-      return () => tween.scrollTrigger?.kill();
+      return () => {
+        tween.scrollTrigger?.kill();
+        tween.kill();
+      };
     });
     const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener("load", refresh);
     window.addEventListener("resize", refresh);
-    const timer = window.setTimeout(refresh, 500);
+    const timer = window.setTimeout(refresh, 350);
     return () => {
+      window.removeEventListener("load", refresh);
       window.removeEventListener("resize", refresh);
       window.clearTimeout(timer);
       media.revert();
@@ -210,8 +215,8 @@ function HorizontalServices() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="overflow-hidden bg-charcoal py-14 text-ivory md:py-20">
-      <div ref={trackRef} className="flex flex-col gap-5 px-5 min-[900px]:w-max min-[900px]:flex-row min-[900px]:gap-8 min-[900px]:px-0 min-[900px]:pl-[calc((100vw-min(80vw,1080px))/2)] min-[900px]:pr-[calc((100vw-min(80vw,1080px))/2)]">
+    <section ref={sectionRef} className="overflow-hidden bg-charcoal py-10 text-ivory md:py-12">
+      <div ref={trackRef} className="flex flex-col gap-4 px-5 min-[900px]:w-max min-[900px]:flex-row min-[900px]:gap-6 min-[900px]:px-0 min-[900px]:pl-[calc((100vw-min(80vw,1080px))/2)] min-[900px]:pr-[calc((100vw-min(80vw,1080px))/2)]">
         {services.map((service) => (
           <article key={service.film} className="relative aspect-[4/3] w-full overflow-hidden min-[900px]:aspect-auto min-[900px]:h-[clamp(360px,60vh,620px)] min-[900px]:w-[min(80vw,1080px)] min-[900px]:shrink-0">
             <Film name={service.film} start={service.start} position={service.position} fill label={service.title} />
@@ -237,7 +242,6 @@ function GrandTable() {
     <section className="relative min-h-[100svh] overflow-hidden bg-charcoal text-ivory">
       <Film
         name="hero"
-        eager
         scrub={{ from: 6.2, to: 9.7 }}
         position="center center"
         fill
@@ -287,7 +291,7 @@ function HowItWorks() {
 
   return (
     <section ref={ref} className="grid bg-ivory text-navy lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="mx-auto grid w-full max-w-3xl content-center gap-10 px-5 py-16 md:px-14 md:py-20">
+      <div className="mx-auto grid w-full max-w-3xl content-center gap-8 px-5 py-12 md:px-14 md:py-16">
         <div>
           <p className="font-serif text-7xl text-gold/80">03</p>
           <p className="text-[0.68rem] uppercase tracking-[0.32em] text-golddeep">The rhythm</p>
@@ -310,33 +314,33 @@ function HowItWorks() {
 
 function QualityFilms() {
   return (
-    <section className="bg-ivory px-5 py-20 md:px-14">
-      <div className="mx-auto grid max-w-page gap-4 md:grid-cols-12 md:grid-rows-2">
-        <article className="relative min-h-[460px] overflow-hidden text-ivory md:col-span-7 md:row-span-2">
+    <section className="bg-ivory px-5 py-12 md:px-14 md:py-14">
+      <div className="mx-auto grid max-w-page gap-3 md:grid-cols-12 md:grid-rows-2">
+        <article className="relative min-h-[420px] overflow-hidden text-ivory md:col-span-7 md:row-span-2">
           <Film name="dinner" start={0.8} position="center 30%" fill label="Finishing a dinner curry" />
           <div className="absolute inset-0 bg-gradient-to-t from-navy/75 via-transparent to-transparent" />
-          <div className="relative z-10 flex h-full min-h-[460px] flex-col justify-end p-8">
+          <div className="relative z-10 flex h-full min-h-[420px] flex-col justify-end p-8">
             <p className="text-[0.66rem] uppercase tracking-[0.28em] text-gold">The pass</p>
             <h2 className="mt-2 font-serif text-5xl">Preparation</h2>
             <p className="mt-3 max-w-sm text-sm leading-7 text-ivory/80">Confirmed orders become the kitchen list. The dinner film is the care itself: a finish of herbs, then the table.</p>
           </div>
         </article>
-        <article className="relative min-h-[240px] overflow-hidden text-ivory md:col-span-5">
+        <article className="relative min-h-[220px] overflow-hidden text-ivory md:col-span-5">
           <Film name="lunch" start={0.4} position="center 70%" fill label="A lunch curry simmering" />
           <div className="absolute inset-0 bg-gradient-to-t from-navy/70 to-transparent" />
-          <div className="relative z-10 flex h-full min-h-[240px] items-end p-6">
+          <div className="relative z-10 flex h-full min-h-[220px] items-end p-6">
             <h3 className="font-serif text-4xl">Ingredients</h3>
           </div>
         </article>
-        <article className="relative min-h-[240px] overflow-hidden text-ivory md:col-span-5">
+        <article className="relative min-h-[220px] overflow-hidden text-ivory md:col-span-5">
           <Film name="breakfast" start={8} position="center center" fill label="The breakfast table" />
           <div className="absolute inset-0 bg-gradient-to-t from-navy/70 to-transparent" />
-          <div className="relative z-10 flex h-full min-h-[240px] items-end p-6">
+          <div className="relative z-10 flex h-full min-h-[220px] items-end p-6">
             <h3 className="font-serif text-4xl">The morning table</h3>
           </div>
         </article>
       </div>
-      <p className="mx-auto mt-8 max-w-3xl text-sm leading-7 text-ink/70">
+      <p className="mx-auto mt-6 max-w-3xl text-sm leading-7 text-ink/70">
         These are three of the four films, cropped to the gesture that matters. Allergens are printed with the dish. A working kitchen cannot promise the absence of cross-contact, and no certificate is shown here unless its number can be published.
       </p>
     </section>
@@ -345,10 +349,10 @@ function QualityFilms() {
 
 function Finale() {
   return (
-    <section className="relative min-h-[88vh] overflow-hidden text-ivory">
+    <section className="relative min-h-[78vh] overflow-hidden text-ivory">
       <Film name="dinner" start={8.2} position="center 40%" fill label="The evening table" />
       <div className="absolute inset-0 bg-gradient-to-t from-navy/70 via-navy/25 to-transparent" />
-      <div className="relative z-10 flex min-h-[88vh] flex-col items-center justify-center px-6 text-center">
+      <div className="relative z-10 flex min-h-[78vh] flex-col items-center justify-center px-6 text-center">
         <span className="mb-8 h-px w-16 bg-gold" />
         <h2 className="max-w-4xl font-serif text-5xl font-light leading-[0.95] md:text-7xl">Make every day a better dining experience.</h2>
         <Link href="/memberships" className="btn btn-gold mt-10">Explore Memberships</Link>
