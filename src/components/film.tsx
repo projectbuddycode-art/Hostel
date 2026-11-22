@@ -13,6 +13,13 @@ function mediaSrc(item: (typeof films)[FilmKey], start: number, narrow: boolean)
   return start > 0 ? `${file}#t=${start}` : file;
 }
 
+function isNearViewport(node: HTMLElement) {
+  const rect = node.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return false;
+  const slack = Math.round(window.innerHeight * 0.35);
+  return rect.bottom > -slack && rect.top < window.innerHeight + slack;
+}
+
 export function Film({
   name,
   className = "",
@@ -42,67 +49,93 @@ export function Film({
     const frame = frameRef.current;
     if (!video || !frame) return;
 
+    let alive = true;
     let near = eager;
     let hovering = false;
-    let armed = eager;
+    let retry = 0;
     let trigger: ScrollTrigger | undefined;
     const query = window.matchMedia("(max-width: 767px)");
 
     if (eager) video.setAttribute("fetchpriority", "high");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
 
-    const applySource = () => {
-      const next = mediaSrc(item, start, query.matches);
+    const wanted = () => Boolean(alive && !reduced && (eager || near || hovering));
+
+    const choose = () => mediaSrc(item, start, query.matches);
+
+    const applySource = (force = false) => {
+      const next = choose();
       const base = next.split("#")[0];
-      if (!video.currentSrc || !video.currentSrc.includes(base)) {
-        video.src = next;
+      if (!force && video.currentSrc && video.currentSrc.includes(base)) return false;
+      video.src = next;
+      return true;
+    };
+
+    const playNow = () => {
+      if (!wanted()) return;
+      const attempt = video.play();
+      if (attempt) {
+        attempt
+          .then(() => {
+            retry = 0;
+          })
+          .catch(() => {
+            if (!alive || !wanted() || retry > 12) return;
+            retry += 1;
+            window.setTimeout(playNow, 120 * retry);
+          });
       }
     };
 
     const sync = () => {
+      if (!alive) return;
       if (reduced) {
         video.pause();
         return;
       }
-      if (scrub) {
-        if (!near && !hovering) video.pause();
-        return;
-      }
-      if (near || hovering) {
-        if (video.paused) video.play().catch(() => undefined);
+      near = eager || hovering || isNearViewport(frame);
+      if (wanted()) {
+        video.preload = "auto";
+        playNow();
       } else if (!video.paused) {
         video.pause();
       }
     };
 
-    const arm = () => {
-      if (armed) return;
-      armed = true;
-      video.preload = "auto";
-      applySource();
-      if (video.readyState < 2) video.load();
+    applySource();
+    sync();
+
+    const onReady = () => {
+      if (wanted()) playNow();
+    };
+    const onPause = () => {
+      if (!wanted()) return;
+      window.setTimeout(() => {
+        if (wanted() && video.paused) playNow();
+      }, 40);
+    };
+    const onWaiting = () => {
+      if (wanted()) playNow();
     };
 
-    applySource();
-    if (eager) {
-      video.preload = "auto";
-      sync();
-    } else {
-      video.preload = "metadata";
-    }
-
-    const onReady = () => sync();
     video.addEventListener("loadeddata", onReady);
     video.addEventListener("canplay", onReady);
+    video.addEventListener("canplaythrough", onReady);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("stalled", onWaiting);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("suspend", onWaiting);
 
     const onBreakpoint = () => {
-      applySource();
+      applySource(true);
       sync();
     };
     query.addEventListener("change", onBreakpoint);
 
     const onEnter = () => {
       hovering = true;
-      arm();
       sync();
     };
     const onLeave = () => {
@@ -112,24 +145,21 @@ export function Film({
     frame.addEventListener("pointerenter", onEnter);
     frame.addEventListener("pointerleave", onLeave);
 
-    let observer: IntersectionObserver | undefined;
-    if (!eager) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          const entry = entries[0];
-          if (!entry) return;
-          if (entry.isIntersecting) {
-            near = true;
-            arm();
-          } else {
-            near = false;
-          }
-          sync();
-        },
-        { root: null, rootMargin: "20% 0px", threshold: 0.12 },
-      );
-      observer.observe(frame);
-    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        near = eager || entry.isIntersecting || entry.intersectionRatio > 0;
+        if (near) video.preload = "auto";
+        sync();
+      },
+      { root: null, rootMargin: "40% 0px", threshold: [0, 0.01, 0.1, 0.25, 0.5] },
+    );
+    observer.observe(frame);
+
+    const onScroll = () => sync();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
 
     if (scrub && !reduced) {
       gsap.registerPlugin(ScrollTrigger);
@@ -138,23 +168,57 @@ export function Film({
         start: "top bottom",
         end: "bottom top",
         scrub: true,
+        onEnter: () => {
+          near = true;
+          sync();
+        },
+        onEnterBack: () => {
+          near = true;
+          sync();
+        },
+        onLeave: () => {
+          if (!hovering && !eager) {
+            near = false;
+            sync();
+          }
+        },
+        onLeaveBack: () => {
+          if (!hovering && !eager) {
+            near = false;
+            sync();
+          }
+        },
         onUpdate: (self) => {
-          if (!near && !hovering) return;
+          if (!wanted()) return;
           const duration = Number.isFinite(video.duration) ? video.duration : 10;
           const from = Math.min(scrub.from, duration - 0.3);
           const to = Math.min(scrub.to, duration - 0.05);
           video.currentTime = from + (to - from) * self.progress;
+          if (video.paused) playNow();
         },
       });
     }
 
+    const boot = window.setTimeout(sync, 80);
+    const bootAgain = window.setTimeout(sync, 400);
+
     return () => {
+      alive = false;
+      window.clearTimeout(boot);
+      window.clearTimeout(bootAgain);
       video.removeEventListener("loadeddata", onReady);
       video.removeEventListener("canplay", onReady);
+      video.removeEventListener("canplaythrough", onReady);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("stalled", onWaiting);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("suspend", onWaiting);
       query.removeEventListener("change", onBreakpoint);
       frame.removeEventListener("pointerenter", onEnter);
       frame.removeEventListener("pointerleave", onLeave);
-      observer?.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      observer.disconnect();
       trigger?.kill();
     };
   }, [eager, item, reduced, scrub, start]);
@@ -172,9 +236,9 @@ export function Film({
         poster={item.poster}
         muted
         autoPlay={Boolean(eager && !reduced)}
-        loop={!scrub}
+        loop
         playsInline
-        preload={eager ? "auto" : "metadata"}
+        preload="auto"
         aria-hidden={label ? undefined : true}
         aria-label={label}
       >
